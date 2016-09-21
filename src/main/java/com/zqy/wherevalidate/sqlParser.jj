@@ -1,0 +1,319 @@
+/**
+ * JavaCC file
+ */
+ 
+options {
+  JDK_VERSION = "1.6";
+  STATIC = false ;
+}
+PARSER_BEGIN(SqlParser)
+package com.zqy.wherevalidate;
+import java.io.StringReader;
+import java.io.PrintStream ;
+class SqlParser {
+public static void main( String[] args )
+throws ParseException, TokenMgrError, NumberFormatException {
+StringReader reader = new StringReader(" 1 in (1,2,3) and 'c' in ('a','c') and 'abcdsadsa' like '%abc%'");
+SqlParser parser = new SqlParser( reader );
+System.out.println(parser.start());
+}
+boolean result = false;
+}
+
+PARSER_END(SqlParser)
+SKIP:{" "}
+TOKEN:{< EOL : "\n"|"\r"|"\r\n" >}
+TOKEN:{< EQUAL : "=">}
+TOKEN:{< LESS_EQUAL : "<">}
+TOKEN:{< GREATER_EQUAL : ">">}
+TOKEN:{< LESS_OR_EQUAL : "<=">}
+TOKEN:{< GREATER_OR_EQUAL : ">=">}
+TOKEN:{< NO_EQUAL : "<>">}
+TOKEN :{ < PLUS : "+" > }
+TOKEN :{ < MINUS : "-" > }
+TOKEN:{< TIMES : "*" > }
+TOKEN:{< DIVIDE : "/" > }
+TOKEN:{< OPEN_PAR : "(" > }
+TOKEN:{< CLOSE_PAR : ")" > }
+TOKEN:{< AND : " AND "|" and "|" And " > }
+TOKEN:{< OR : " OR "|" or "|" Or " > }
+TOKEN:{< NOT : " not"|" NOT"|" Not" > }
+TOKEN:{< NUMBER : <DIGITS>| <DIGITS>"." <DIGITS> | <DIGITS>"."|"." <DIGITS> >}
+TOKEN:{< #DIGITS : (["0"-"9"])+ >}
+TOKEN:{ <STRING: "'" (~["'"])+ "'"|"'" (<LETTER>)+ "'">}
+TOKEN:{< #LETTER: 
+       ["a"-"z", 
+       "A"-"Z",
+       "\u0024",
+       "\u0041"-"\u005a",
+       "\u005f",
+       "\u0061"-"\u007a",
+       "\u00c0"-"\u00d6",
+       "\u00d8"-"\u00f6",
+       "\u00f8"-"\u00ff",
+       "\u0100"-"\u1fff",
+       "\u3040"-"\u318f",
+       "\u3300"-"\u337f",
+       "\u3400"-"\u3d2d",
+       "\u4e00"-"\u9fff",
+       "\uf900"-"\ufaff","%"] >}
+TOKEN:{ <IN: "in "<OPEN_PAR> (<STRING>",")* <STRING> <CLOSE_PAR>|"IN "<OPEN_PAR> (<STRING>",")* <STRING> <CLOSE_PAR>|"In "<OPEN_PAR> (<STRING>",")* <STRING> <CLOSE_PAR>| 
+	         "in "<OPEN_PAR> (<NUMBER>",")* <NUMBER> <CLOSE_PAR>|"IN "<OPEN_PAR> (<NUMBER>",")* <NUMBER> <CLOSE_PAR>|"In "<OPEN_PAR> (<NUMBER>",")* <NUMBER> <CLOSE_PAR> 
+	          >}
+TOKEN:{ <LIKE: " LIKE " | " like " | " Like " >}
+TOKEN:{ <NOT_LIKE:<NOT><LIKE>>}
+//statrt主方法调用
+boolean start() throws NumberFormatException :
+{}
+{
+(
+result =  orExpression()
+{ return result; }
+)*
+<EOF>
+}
+boolean orExpression() throws Exception:
+{
+boolean boo1=true;
+boolean boo2=false;
+}
+{
+boo1 = andExpression()
+(
+<OR>
+boo2=andExpression()
+{boo1=boo1 || boo2;}
+)*
+{return boo1 || boo2;}
+}
+boolean andExpression() throws Exception:
+{
+boolean boo1=true;
+boolean boo2=true;
+boolean result=false;
+}
+{
+boo1 = judgmentExpression()
+(
+<AND>
+boo2=judgmentExpression()
+{boo1=boo1 && boo2;}
+)*
+{return boo1 && boo2;}
+}
+boolean judgmentExpression() throws Exception:
+{
+	double d=0.0;
+	double d1=0.0;
+	String str1;
+	String str2;
+	boolean result=false;
+	boolean boo = false;
+	String[] ins=null;
+}
+{
+d=arithmetic()
+(
+<EQUAL>
+d1=arithmetic()
+{result =(Double.compare(d, d1) == 0);}
+|
+<NO_EQUAL>
+d1=arithmetic()
+{result =(Double.compare(d, d1) != 0);}
+|
+<LESS_EQUAL>
+d1=arithmetic()
+{result =(Double.compare(d, d1) < 0);}
+|
+<LESS_OR_EQUAL>
+d1=arithmetic()
+{result =(Double.compare(d, d1) <= 0);}
+|
+<GREATER_EQUAL>
+d1=arithmetic()
+{result =(Double.compare(d, d1) > 0);}
+|
+<GREATER_OR_EQUAL>
+d1=arithmetic()
+{result =(Double.compare(d, d1) >= 0);}
+|
+ins = getIn()
+{for(int i=0;i<ins.length;i++){
+		if(Double.compare(d, Double.parseDouble(ins[i].trim())) == 0){
+			result=true;
+			break;
+		};
+	}
+}
+|
+<NOT>
+ins = getIn()
+{   result=true;
+	for(int i=0;i<ins.length;i++){
+		if(Double.compare(d, Double.parseDouble(ins[i].trim())) == 0){
+			result=false;
+			break;
+		};
+	}
+}
+)
+{return result;}
+|
+str1=getStr()
+(
+<EQUAL>
+str2=getStr()
+{result=str1.equals(str2);}
+|
+<NO_EQUAL>
+str2=getStr()
+{result=!str1.equals(str2);}
+|
+ins = getIn()
+{for(int i=0;i<ins.length;i++){
+		if(ins[i].trim().equals(str1)){
+			result=true;
+			break;
+		};
+	}
+}
+|
+<NOT>
+ins = getIn()
+{
+	result=true;
+	for(int i=0;i<ins.length;i++){
+		if(ins[i].trim().equals(str1)){
+			result=false;
+			break;
+		};
+	}
+}
+|
+<LIKE>
+str2=getStr()
+{
+result= compareLike(str1,str2);
+}
+|
+<NOT_LIKE>
+str2=getStr()
+{
+result= !compareLike(str1,str2);
+}
+)
+{return result;}
+|
+<OPEN_PAR> result = orExpression() <CLOSE_PAR>
+{return result;}
+}
+
+boolean test() throws NumberFormatException :
+{
+boolean b=false;
+}
+{
+<OPEN_PAR> b = orExpression() <CLOSE_PAR>
+{ return b; }
+}
+//四则运算
+double arithmetic() throws NumberFormatException :
+{
+double i;
+double value;
+}
+{
+//加法
+value= term()
+(
+<PLUS>
+i = term()
+{ value+=i;}
+|
+//减法
+<MINUS>
+i = term()
+{ value -= i; }
+)*
+{ return value;}
+}
+double term() throws NumberFormatException:
+{
+double i;
+double value;
+}
+{
+value = primary()
+(
+<TIMES>
+i = primary ()
+{ value *= i;}
+|
+<DIVIDE>
+i = primary ()
+{ value /= i; }
+)*
+{ return value; }
+}
+//获取数字
+double primary() throws NumberFormatException:
+{
+Token t;
+double d;
+}
+{
+t = <NUMBER>
+{ return Double.parseDouble(t.image); }
+|
+<MINUS> d = primary()
+{ return -d; }
+}
+//获取字符串
+String getStr() throws Exception:
+{
+Token t;
+}
+{
+t = <STRING>
+{ return t.image.toString(); }
+}
+//获取in里的内容
+String[] getIn() throws Exception:
+{
+Token t;
+String in="";
+String[] ins=null;
+}
+{
+t = <IN>
+{in = t.image.toString();
+ in = in.substring(in.indexOf("(")+1, in.indexOf(")"));
+ ins= in.split(",");
+}
+{ return ins; }
+}
+boolean compareLike(String str1,String str2) throws Exception:
+{
+boolean boo =true;
+}
+{
+{
+if(str2.startsWith("'%") && str2.endsWith("%'")){
+	str1 = str1.substring(1, str1.length()-1);
+	str2 = str2.substring(2,str2.length()-2);
+	boo = str1.contains(str2);
+	}else if(str2.startsWith("'%")){
+	str1 = str1.substring(1, str1.length());
+	str2 = str2.substring(2,str2.length());
+	boo =  str1.endsWith(str2);
+	}else if(str2.endsWith("%'")){
+	str1 = str1.substring(1, str1.length()-1);
+	str2 = str2.substring(1,str2.length()-2);
+	boo =  str1.startsWith(str2);
+    }else{
+    boo=false;
+    }
+}
+{return boo;}	
+}
